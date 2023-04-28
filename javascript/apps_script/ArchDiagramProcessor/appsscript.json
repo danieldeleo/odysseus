@@ -1,0 +1,26 @@
+{
+    "timeZone": "America/New_York",
+    "exceptionLogging": "STACKDRIVER",
+    "runtimeVersion": "V8",
+    "dependencies": {
+      "enabledAdvancedServices": [
+        {
+          "userSymbol": "DriveAPI",
+          "serviceId": "drive",
+          "version": "v3"
+        }
+      ]
+    },
+    "oauthScopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/script.external_request"
+    ],
+    "webapp": {
+      "executeAs": "USER_DEPLOYING",
+      "access": "DOMAIN"
+    },
+    "executionApi": {
+      "access": "DOMAIN"
+    }
+  }
