@@ -117,15 +117,20 @@ def get_image_text_for_bucket_images(bucket_name, prefix):
     blobs_iter = storage_client.list_blobs(bucket_name, prefix=prefix)
     word_to_images = defaultdict(list)
     for blob in blobs_iter:
-        word_to_images_doc_ref = firestore_client.collection("image_text").document("word_to_images")
-        image_to_words_doc_ref = firestore_client.collection("image_text").document("image_to_words")
-        word_to_images = defaultdict(list, word_to_images_doc_ref.get().to_dict() or {})
-        image_to_words = image_to_words_doc_ref.get().to_dict() or {}
-        detect_text_uri(f"gs://{bucket_name}/{blob.name}", word_to_images, image_to_words)
-        print(word_to_images)
+        # word_to_images_doc_ref = firestore_client.collection("image_text").document("word_to_images")
+        # image_to_words_doc_ref = firestore_client.collection("image_text").document("image_to_words")
+        image_name = blob.name.split("/")[-1]
+        blob_path = f"{bucket_name}/{blob.name}"
+        url = f"https://storage.cloud.google.com/{urllib.parse.quote_plus(blob_path)}"
+        diagram_to_words_doc_ref = firestore_client.collection("image_text").document(image_name)
+        # word_to_images = defaultdict(list, word_to_images_doc_ref.get().to_dict() or {})
+        # image_to_words = image_to_words_doc_ref.get().to_dict() or {}
+        unique_words = detect_text_uri(f"gs://{bucket_name}/{blob.name}", None, None)
+        # print(word_to_images)
         try:
-            word_to_images_doc_ref.set(word_to_images)
-            image_to_words_doc_ref.set(image_to_words)
+            # word_to_images_doc_ref.set(word_to_images)
+            # image_to_words_doc_ref.set(image_to_words)
+            diagram_to_words_doc_ref.set({"text": unique_words, "url": url})
         except Exception as e:
             print(e)
 
@@ -146,9 +151,10 @@ def detect_text_uri(uri, image_text, image_to_words):
             word = word.strip("-").strip("_").lower()
             if is_word(word):
                 unique_words.add(word)
-    for word in unique_words:
-        image_text[word].append(url)
-    image_to_words[url] = list(unique_words)
+    # for word in unique_words:
+    #     image_text[word].append(url)
+    # image_to_words[url] = list(unique_words)
+    return list(unique_words)
 
 
 def is_word(text):

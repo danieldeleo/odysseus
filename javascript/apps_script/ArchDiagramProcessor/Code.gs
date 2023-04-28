@@ -42,11 +42,12 @@ function doWork() {
       exportFileImagesToBucket(fileId);
     }
     writeFirestoreDocument(fileIds.slice(numFilesPerInvocation, fileIds.length))
+    lock.releaseLock()
     return fileIdsToProcess;
   } else {
+    lock.releaseLock()
     return "No file IDs to parse.";
   }
-  lock.releaseLock()
 }
 
 function storeFileIdsInGoogleDoc(files) {
