@@ -1,11 +1,15 @@
 import base64
-import io, re
+import os, io, re
 from typing import List, Sequence, Union
 from collections import Counter, defaultdict
 import urllib.parse
 
 from google.cloud import aiplatform, storage, vision, firestore
 from google.cloud.aiplatform.gapic.schema import predict
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 import json
 
 # The AI Platform services require regional API endpoints.
@@ -17,6 +21,33 @@ aiplatform_client = aiplatform.gapic.PredictionServiceClient(
 storage_client = storage.Client()
 vision_client = vision.ImageAnnotatorClient()
 firestore_client = firestore.Client()
+
+def get_user_oauth_creds():
+    creds = None
+    SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+    return creds
+
+docs_client = build('docs', 'v1', credentials=get_user_oauth_creds())
+
+
+def get_doc_title(doc_id):
+    return docs_client.documents().get(documentId=doc_id).execute().get('title')
 
 
 def list_blob_names(bucket_name, prefix):
@@ -130,7 +161,12 @@ def get_image_text_for_bucket_images(bucket_name, prefix):
         try:
             # word_to_images_doc_ref.set(word_to_images)
             # image_to_words_doc_ref.set(image_to_words)
-            diagram_to_words_doc_ref.set({"text": unique_words, "url": url})
+            diagram_to_words_doc_ref.set({
+                "text": unique_words,
+                "url": url, 
+                "fileId": image_name.split('\u2215')[0],
+                "title": get_doc_title(image_name.split('\u2215')[0])
+            })
         except Exception as e:
             print(e)
 
@@ -262,30 +298,34 @@ def main():
     #     display_name="2020_to_2023_images",
     #     src_uris="gs://psotddimages/image_list.jsonl",
     # )
-    # create_jsonl_batch_prediction_file("psostarterkituscentral1", "batch_predict.jsonl")
-    # create_batch_prediction_job_sample(
-    #     project="125344609093",
-    #     location="us-central1",
-    #     model_resource_name="2252795971220013056",
-    #     job_display_name="hellworld",
-    #     # {"content": "gs://sourcebucket/datasets/images/source_image.jpg", "mimeType": "image/jpeg"}
-    #     gcs_source="gs://psotddimages/batch_predict_input.jsonl",
-    #     gcs_destination="gs://psotddimages/batch_predict_output",
-    # )
     # predict_image_classification_sample(
     #     project="125344609093",
     #     endpoint_id="6485372579413491712",
     #     location="us-central1",
     #     filename="images_since_2020/1-FLoCXJzENvQMV7eEEyzISpPuSuYBirwFu3SxTsDuKg∕image12.png"
     # )
-    # copy_diagrams_to_folder(
-    #     "psostarterkituscentral1",
-    #     "2020_to_2023_images_predictions/",
-    #     "2020_to_2023_diagrams",
+    
+    # Batch process below
+    
+    # create_jsonl_batch_prediction_file("psostarterkituscentral1", "batch_predict.jsonl")
+    # create_batch_prediction_job_sample(
+    #     project="125344609093",
+    #     location="us-central1",
+    #     model_resource_name="4477574187141038080",
+    #     job_display_name="detect_arch_diagrams",
+    #     #  The gcs_source points to a JSONL file containing the newline-delimited list of JSON as shown below:
+    #     #  {"content": "gs://sourcebucket/datasets/images/source_image.jpg", "mimeType": "image/jpeg"}
+    #     gcs_source="gs://psostarterkituscentral1/batch_predict.jsonl",
+    #     gcs_destination="gs://psostarterkituscentral1/2020_to_2023_images_predictions",
     # )
-    get_image_text_for_bucket_images(
-        "psostarterkituscentral1", "2020_to_2023_diagrams/images_since_2020/"
+    copy_diagrams_to_folder(
+        "psostarterkituscentral1",
+        "2020_to_2023_images_predictions/",
+        "2020_to_2023_diagrams_test",
     )
+    # get_image_text_for_bucket_images(
+    #     "psostarterkituscentral1", "2020_to_2023_diagrams_test/images_since_2020/"
+    # )
     # get_top_n_words_from_diagrams(100)
     
     # doc_ref = firestore_client.collection("image_text").document("word_to_images")
